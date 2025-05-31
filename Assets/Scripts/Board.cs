@@ -41,6 +41,16 @@ public sealed class Board : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (!Input.GetKeyDown(KeyCode.A)) return;
+
+        foreach (var connectedTile in Tiles[0, 0].GetConnectedTiles())
+        {
+            connectedTile.icon.transform.DOScale(1.25f, TweenDuration).Play();
+        }
+    }
+
     public async void Select(Tile tile)
     {
         if (!_selection.Contains(tile)) _selection.Add(tile);
@@ -50,6 +60,15 @@ public sealed class Board : MonoBehaviour
         Debug.Log($"Selected Tiles at ({_selection[0].x}, {_selection[0].y}) and ({_selection[1].x}, {_selection[1].y})");
 
         await Swap(_selection[0], _selection[1]);
+
+        if (CanPop())
+        {
+            Pop();
+        }
+        else
+        {
+            await Swap(_selection[0], _selection[1]);
+        }
 
         _selection.Clear();
     }
@@ -81,6 +100,47 @@ public sealed class Board : MonoBehaviour
         tile2.Item = tile1Item;
 
     }
+    private bool CanPop()
+    {
+        for (var y = 0; y < Height; y++)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                if (Tiles[x, y].GetConnectedTiles().Skip(1).Count() >= 2) return true;
+            }
+        }
+        return false;
+    }
+    private async void Pop()
+    {
+        for (var y = 0; y < Height; y++)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                var tile = Tiles[x, y];
+                var connectedTiles = tile.GetConnectedTiles();
 
-    
+                if (connectedTiles.Skip(1).Count() < 2) continue;
+
+                var deflateSequence = DOTween.Sequence();
+                var inflateSequence = DOTween.Sequence();
+
+                foreach (var connectedTile in connectedTiles)
+                {
+                    deflateSequence.Join(connectedTile.icon.transform.DOScale(Vector3.zero, TweenDuration));
+                }
+
+                await deflateSequence.Play().AsyncWaitForCompletion();
+
+                foreach (var connectedTile in connectedTiles)
+                {
+                    connectedTile.Item = ItemDatabase.Items[Random.Range(0, ItemDatabase.Items.Length)];
+
+                    inflateSequence.Join(connectedTile.icon.transform.DOScale(Vector3.one, TweenDuration));
+                }
+
+                await inflateSequence.Play().AsyncWaitForCompletion();
+            }
+        }
+    }
 }
