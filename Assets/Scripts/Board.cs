@@ -8,6 +8,9 @@ public sealed class Board : MonoBehaviour
 {
     public static Board Instance { get; private set; }
 
+    [SerializeField] private AudioClip collectedSound;
+    [SerializeField] private AudioSource audioSource;
+
     public Row[] rows;
     public Tile[,] Tiles { get; private set; }
     public int Width => Tiles.GetLength(0);
@@ -39,6 +42,8 @@ public sealed class Board : MonoBehaviour
                 tile.Item = ItemDatabase.Items[Random.Range(0, ItemDatabase.Items.Length)];
             }
         }
+
+        Pop();
     }
 
     private void Update()
@@ -53,7 +58,20 @@ public sealed class Board : MonoBehaviour
 
     public async void Select(Tile tile)
     {
-        if (!_selection.Contains(tile)) _selection.Add(tile);
+        if (!_selection.Contains(tile))
+        {
+            if (_selection.Count > 0)
+            {
+                if (System.Array.IndexOf(_selection[0].Neighbour, tile) != -1)
+                {
+                    _selection.Add(tile);
+                }  
+            } else
+            {
+                _selection.Add(tile);
+            }
+        }
+
 
         if (_selection.Count < 2) return;
 
@@ -130,6 +148,10 @@ public sealed class Board : MonoBehaviour
                     deflateSequence.Join(connectedTile.icon.transform.DOScale(Vector3.zero, TweenDuration));
                 }
 
+                audioSource.PlayOneShot(collectedSound);
+
+                ScoreCounter.Instance.Score += tile.Item.value * connectedTiles.Count;
+
                 await deflateSequence.Play().AsyncWaitForCompletion();
 
                 foreach (var connectedTile in connectedTiles)
@@ -140,6 +162,9 @@ public sealed class Board : MonoBehaviour
                 }
 
                 await inflateSequence.Play().AsyncWaitForCompletion();
+
+                x = 0;
+                y = 0;
             }
         }
     }
